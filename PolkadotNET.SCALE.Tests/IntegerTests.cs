@@ -73,9 +73,7 @@ public class IntegerTests
     [Test]
     public void Enum()
     {
-#pragma warning disable NUnit2021
         Assert.That(ValidEnumeration.Second.Encode(), Is.EqualTo((byte)2));
-#pragma warning restore NUnit2021
         
         Assert.That(((byte)2).DecodeEnum<ValidEnumeration>(), Is.EqualTo(ValidEnumeration.Second));
         Assert.Throws<ScaleEncodingException>(() => InvalidEnumeration.Foo.Encode());
