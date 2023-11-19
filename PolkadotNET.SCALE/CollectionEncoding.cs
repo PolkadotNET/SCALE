@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Numerics;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -8,73 +9,104 @@ namespace PolkadotNET.SCALE;
 
 public static class CollectionEncoding
 {
-    public static byte[] Encode(this string value)
-    {
-        var asBytes = Encoding.UTF8.GetBytes(value);
-        var lenCompact = new CompactInt32(value.Length).Encode();
+    public static byte[] Encode(this string value) =>
+        EncodeLength(value.ToArray()).Concat(Encoding.UTF8.GetBytes(value)).ToArray();
 
-        return lenCompact.Concat(asBytes).ToArray();
-    }
+    public static byte[] Encode(this byte[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this bool[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this sbyte[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this short[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this ushort[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this int[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this uint[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this long[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    public static byte[] Encode(this ulong[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
     
+    public static byte[] Encode(this CompactByte[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactSignedByte[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactInt16[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactUInt16[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactInt32[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactUInt32[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactInt64[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+    public static byte[] Encode(this CompactUInt64[] items) =>
+        EncodeLength(items).Concat(items.SelectMany(x => x.Encode())).ToArray();
+
+    private static byte[] EncodeLength(Array array)
+        => new CompactInt32(array.Length).Encode();
+
     public static string DecodeString(this byte[] encoded)
+        => Encoding.UTF8.GetString(encoded, encoded.DecodeCompactInt32(out var compact), compact.Value);
+
+    public static byte[] DecodeByteCollection(this byte[] encoded)
     {
-        var readLen = encoded.DecodeCompactInt32(out var compact);
-        return Encoding.UTF8.GetString(encoded, readLen, compact.Value);
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(1).Select(c => c[0].DecodeByte()).ToArray();
     }
-}
 
-public static class StructEncoding
-{
-    private static byte[] Encode<T>(T value) where T: new()
+    public static sbyte[] DecodeSignedByteCollection(this byte[] encoded)
     {
-        var buffer = new List<byte>();
-        var type = typeof(T);
-        foreach (var propertyInfo in type.GetProperties())
-        {
-            var propertyValue = propertyInfo.GetValue(value);
-            if (propertyValue == null)
-                throw new Exception("cannot encode NULL value. use the Option struct instead");
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(1).Select(c => c[0].DecodeSignedByte()).ToArray();
+    }
 
-            if (propertyInfo.PropertyType == typeof(bool))
-                buffer.AddRange(((bool)propertyValue).Encode());
-            if (propertyInfo.PropertyType == typeof(byte))
-                buffer.AddRange(((byte)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactByte))
-                buffer.AddRange(((CompactByte)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(sbyte))
-                buffer.AddRange(((sbyte)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactSignedByte))
-                buffer.AddRange(((CompactSignedByte)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(short))
-                buffer.AddRange(((short)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactInt16))
-                buffer.AddRange(((CompactInt16)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(ushort))
-                buffer.AddRange(((ushort)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactUInt16))
-                buffer.AddRange(((CompactUInt16)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(int))
-                buffer.AddRange(((int)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactInt64))
-                buffer.AddRange(((CompactInt64)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(uint))
-                buffer.AddRange(((uint)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactUInt32))
-                buffer.AddRange(((CompactUInt32)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(long))
-                buffer.AddRange(((long)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactInt64))
-                buffer.AddRange(((CompactInt64)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(ulong))
-                buffer.AddRange(((ulong)propertyValue).Encode());
-            else if (propertyInfo.PropertyType == typeof(CompactUInt64))
-                buffer.AddRange(((CompactUInt64)propertyValue).Encode());
-            else if (propertyInfo.PropertyType.IsEnum)
-                buffer.Add(((Enum)propertyValue).Encode());
-            else
-                throw new Exception("Unknown Property Type");
-        }
-        
-        return buffer.ToArray();
+    public static short[] DecodeInt16Collection(this byte[] encoded)
+    {
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(2).Select(c => c.DecodeInt16()).ToArray();
+    }
+
+    public static ushort[] DecodeUInt16Collection(this byte[] encoded)
+    {
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(2).Select(c => c.DecodeUInt16()).ToArray();
+    }
+
+    public static int[] DecodeInt32Collection(this byte[] encoded)
+    {
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(4).Select(c => c.DecodeInt32()).ToArray();
+    }
+
+    public static uint[] DecodeUInt32Collection(this byte[] encoded)
+    {
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(4).Select(c => c.DecodeUInt32()).ToArray();
+    }
+
+    public static long[] DecodeInt64Collection(this byte[] encoded)
+    {
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(8).Select(c => c.DecodeInt64()).ToArray();
+    }
+
+    public static ulong[] DecodeUInt64Collection(this byte[] encoded)
+    {
+        var len = encoded.DecodeCompactInt32(out var collectionLength);
+        return encoded[len..(int)collectionLength].Chunk(8).Select(c => c.DecodeUInt64()).ToArray();
     }
 }

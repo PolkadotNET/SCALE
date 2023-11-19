@@ -23,14 +23,13 @@ public static class IntegerEncoding
     public static byte[] Encode(this int value) => BitConverter.GetBytes(value);
     public static byte[] Encode(this ulong value) => BitConverter.GetBytes(value);
     public static byte[] Encode(this long value) => BitConverter.GetBytes(value);
-
-    public static byte Encode<TEnum>(this TEnum value) where TEnum : Enum
+    public static byte Encode(this Enum value)
     {
-        var valueType = typeof(TEnum).GetField("value__");
+        var valueType = value.GetType().GetField("value__");
         if (valueType == null || valueType.FieldType != typeof(byte))
             throw new ScaleEncodingException("Enum must be of byte size");
 
-        return (byte)(object)value;
+        return Convert.ToByte(value);
     }
 
     // Integer
@@ -57,7 +56,7 @@ public static class IntegerEncoding
         var valueType = typeof(T).GetField("value__");
         if (valueType == null || valueType.FieldType != typeof(byte))
             throw new ScaleEncodingException("Enum must be of byte size");
-
+        
         return (T)(object)encoded;
     }
 }
